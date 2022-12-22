@@ -114,9 +114,15 @@ identifier. COMPILE-GRAMMAR-PARAMS are the parameters passed to
 
   (my/ensure-straight)
 
-  (let ((straight-recipe-name (concat my/straight-recipe-name-prefix (symbol-name language)))
-        (straight-recipe-symbol (intern straight-recipe-name))
-        (repo (or repo (concat "tree-sitter/tree-sitter-" (symbol-name language)))))
+  (let* ((straight-recipe-name (concat my/straight-recipe-name-prefix (symbol-name language)))
+         (straight-recipe-symbol (intern straight-recipe-name))
+         (repo (or repo (concat "tree-sitter/tree-sitter-" (symbol-name language)))))
+
+    ;; edge case: we have build the package before via straight, and it
+    ;; succeeded, but did not produce the desired result: the language is still
+    ;; not "ready". potentially the dynamic lib got deleted
+    (when (not (treesit-ready-p language 'quiet))
+      (ht-remove straight--build-cache straight-recipe-name))
 
     (straight-use-package
      `(,straight-recipe-symbol
@@ -259,7 +265,15 @@ The actual language symbol is passed as the first argument to the specified func
     (if (funcall fn language t) ;; first check is always quiet
         t ;; success!
       (with-demoted-errors "Error while trying to automatically download and build treesitter grammar: %s"
-        (my/try-ensure-have-treesitter-grammar language))
+        (cl-letf
+            ;; within the scope of this call, we pretend this advice doesn't
+            ;; exist, so that somebody who calls treeset-ready-p from within the
+            ;; language ensure function won't enter an infinite loop.
+            (((symbol-function 'treesit-ready-p) fn)
+             )
+          (my/try-ensure-have-treesitter-grammar language)
+          )
+        )
       (funcall fn language quiet) ;; check again
       )))
 
