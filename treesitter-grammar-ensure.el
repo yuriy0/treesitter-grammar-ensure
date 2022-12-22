@@ -1,4 +1,4 @@
-;;; treesitter-grammar-ensure.el --- Automatically downloads and builds treesitter grammars -*- lexical-binding: t -*-
+;;; treesitter-grammar-ensure.el --- Automatically downloads and builds treesitter grammars -*- lexical-binding: t; read-symbol-shorthands: (("my/" . "treesitter-grammar-ensure--")) -*-
 
 ;; Package-Requires: ((emacs "29.0"))
 
@@ -80,7 +80,7 @@ directory)."
                    destination)
                   (cond ((file-exists-p "scanner.c") '("scanner.c"))
                         ((file-exists-p "scanner.cc") '("scanner.cc")))))
-        (user-error
+        (error
          "Unable to compile grammar, please file a bug report\n%s"
          (buffer-string))))
     (message "Tresitter grammar completed compilation")))
@@ -89,7 +89,7 @@ directory)."
 ;; https://github.com/radian-software/straight.el#getting-started
 (defvar bootstrap-version)
 (defun my/ensure-straight()
-  (when (not (fbound 'straight-use-package))
+  (when (not (fboundp 'straight-use-package))
     (let ((bootstrap-file
            (expand-file-name "straight/repos/straight.el/bootstrap.el" user-emacs-directory))
           (bootstrap-version 6))
@@ -102,6 +102,8 @@ directory)."
           (eval-print-last-sexp)))
       (load bootstrap-file nil 'nomessage))))
 
+(defconst my/straight-recipe-name-prefix "ensure-treesitter-grammar--")
+
 (defun tree-sitter-ensure-have-grammar-via-straight+standard-github(language &optional repo compile-grammar-params)
   "Uses straight to ensure that the treesitter grammar for LANGUAGE,
 which is expected to be found in the \"standard\" locations in
@@ -112,11 +114,12 @@ identifier. COMPILE-GRAMMAR-PARAMS are the parameters passed to
 
   (my/ensure-straight)
 
-  (let ((straight-recipe-name (intern (concat "ensure-treesitter-grammar--" (symbol-name language))))
+  (let ((straight-recipe-name (concat my/straight-recipe-name-prefix (symbol-name language)))
+        (straight-recipe-symbol (intern straight-recipe-name))
         (repo (or repo (concat "tree-sitter/tree-sitter-" (symbol-name language)))))
 
     (straight-use-package
-     `(,straight-recipe-name
+     `(,straight-recipe-symbol
        :type git
        :host github
        :repo ,repo
@@ -220,11 +223,11 @@ identifier. COMPILE-GRAMMAR-PARAMS are the parameters passed to
 
     (typescript
      .
-     (tree-sitter-ensure-have-grammar-via-straight+standard-github nil '(:path "typescript")))
+     (tree-sitter-ensure-have-grammar-via-straight+standard-github nil (:path "typescript")))
 
     (tsx
      .
-     (tree-sitter-ensure-have-grammar-via-straight+standard-github "tree-sitter/tree-sitter-typescript" '(:path "tsx")))
+     (tree-sitter-ensure-have-grammar-via-straight+standard-github "tree-sitter/tree-sitter-typescript" (:path "tsx")))
     )
 
   "Mapping from symbols corresponding to languages, to the function
@@ -259,3 +262,5 @@ The actual language symbol is passed as the first argument to the specified func
         (my/try-ensure-have-treesitter-grammar language))
       (funcall fn language quiet) ;; check again
       )))
+
+(provide 'treesitter-grammar-ensure)
