@@ -116,7 +116,21 @@ identifier. COMPILE-GRAMMAR-PARAMS are the parameters passed to
 
   (let* ((straight-recipe-name (concat my/straight-recipe-name-prefix (symbol-name language)))
          (straight-recipe-symbol (intern straight-recipe-name))
-         (repo (or repo (concat "tree-sitter/tree-sitter-" (symbol-name language)))))
+         (repo (or repo (concat "tree-sitter/tree-sitter-" (symbol-name language))))
+         (compile-path-arg (plist-get compile-grammar-params :path))
+         (files-recipe-spec
+          ;; we need a special case for 'path' argument.
+          ;; this maps to the 'files' of straight so that we can have recipes
+          ;; using different subdirectories of the same repo.
+          (when (and compile-path-arg
+                     (stringp compile-path-arg)
+                     (not (f-absolute? compile-path-arg)))
+            (list :files
+                  (list (concat compile-path-arg "/*.*"))
+                  )
+            )
+          )
+         )
 
     ;; edge case: we have build the package before via straight, and it
     ;; succeeded, but did not produce the desired result: the language is still
@@ -129,6 +143,7 @@ identifier. COMPILE-GRAMMAR-PARAMS are the parameters passed to
        :type git
        :host github
        :repo ,repo
+       ,@files-recipe-spec
        :post-build
        (tree-sitter-compile-grammar ,@compile-grammar-params)))
     ))
